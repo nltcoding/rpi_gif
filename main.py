@@ -6,6 +6,7 @@ from omxplayer.player import OMXPlayer
 
 
 MINUTE = 60
+first_run = True
 
 def get_time_slot():
     
@@ -21,36 +22,60 @@ def get_time_slot():
         slot = "afternoon"
     elif hour >= 16 and hour < 19:
         slot = "evening"
-    elif hour >= 19 and hour < 20:
+    elif hour >= 19 or hour < 8:
         slot = "night"
-    else:
-        slot = "unknown"
 
-    #return slot
-    return "morning"
+    return slot
+
 
 def next_file_index(i,length):
-    return (i+2)%length
+    return (i+1)%length
 
-def loop_and_buffer(file_1, file_2, player_1, player_2):
+def loop_and_buffer(file_1, file_2, player_1, player_2, first_run, player_1_run, player_2_run):
 
-    player_1.load(file_1)
-    player_2.load(file_2)
+    if player_2_run:
+        file_1 = file_1 
+        player_1.load(file_1)
+        sleep(2)
+
+    if not first_run: 
+        sleep(10)
+
+    if first_run:
+        first_run = False
     
     player_1.play()
+    player_2.pause()
+    
+    
+    player_2_run = False
+    player_1_run = True
+
 
     duration_1 = player_1.duration()
     play_time_1 = duration_1 * ceil(MINUTE / duration_1)
 
-    sleep(play_time_1)
+    if player_1_run:
+        file_2 = file_2 
+        sleep(2)
+        player_2.load(file_2)
 
+    sleep(10)
+    
     player_2.play()
+    #sleep(0.1)
     player_1.pause()
+    sleep(2)
+    
 
+    player_2_run = True
+    player_1_run = False
+    
     duration_2 = player_2.duration()
     play_time_2 = duration_2 * ceil(MINUTE / duration_2)
 
-    sleep(play_time_2)
+    #sleep(play_time_2)
+    
     
 
 
@@ -79,94 +104,48 @@ if __name__ == '__main__':
 
     try:
         while 1:
-
+                            
             slot = get_time_slot()
-            # slot = 'morning'
 
             directory = slot
+            
+            print(f'Inside {directory} folder')
+            
+            files_in_dir = os.listdir(directory)
+            file_index = 0
 
-            if not directory == 'unknown':
+            while file_index < len(files_in_dir):
+                
+                
 
-                files_in_dir = os.listdir(directory)
-                file_index = 0
+                if verbose: print(f'looping {files_in_dir[file_index]} for 1 minute')
 
-                while file_index < len(files_in_dir):
-                    
-                    if verbose: print(f'Inside {directory} folder')
+                file_1 = f'/home/pi/Desktop/rpi_gif/{directory}/{files_in_dir[file_index]}'
+                file_index = next_file_index(file_index,len(files_in_dir))
 
-                    if verbose: print(f'looping {files_in_dir[file_index]} for 1 minute')
+                file_2 = f'/home/pi/Desktop/rpi_gif/{directory}/{files_in_dir[file_index]}'
+                file_index = next_file_index(file_index,len(files_in_dir))
 
+                loop_and_buffer(file_1, file_2, player_1, player_2, first_run, player_1_run, player_2_run)
 
-                    if player_2_run:
-                        file_1 = f'/home/pi/Desktop/rpi_gif/{directory}/{files_in_dir[file_index]}'
-                        player_1.load(file_1)
-                        sleep(2)
-
-                    if not first_run: 
-                        sleep(10)
-
-                    if first_run:
-                        first_run = False
-                    
-                    player_1.play()
-                   # sleep(0.1)
-                    player_2.pause()
-                    
-                    
-
-                    player_2_run = False
-                    player_1_run = True
+                current_slot = get_time_slot()
 
 
-                    duration_1 = player_1.duration()
-                    play_time_1 = duration_1 * ceil(MINUTE / duration_1)
+                if current_slot != slot:
+                    break
 
-                    if player_1_run:
-                        file_2 = f'/home/pi/Desktop/rpi_gif/{directory}/{files_in_dir[file_index + 1]}'
-                        sleep(2)
-                        player_2.load(file_2)
-        
-                    sleep(10)
-                    
-                    player_2.play()
-                    #sleep(0.1)
-                    player_1.pause()
-                    sleep(2)
-                    
 
-                    player_2_run = True
-                    player_1_run = False
-                    
-                    duration_2 = player_2.duration()
-                    play_time_2 = duration_2 * ceil(MINUTE / duration_2)
 
-                    #sleep(play_time_2)
-                    
-                    
-
-                    file_index = next_file_index(file_index,len(files_in_dir))
-
-                    current_slot = get_time_slot()
-
-                    if current_slot == 'unknown':
-                        break
-
-                    if current_slot != slot:
-                        break
-
-            else:
-                print('No task to run at the moment')
-
-    except KeyboardInterrupt:
+    except:
         player_1.quit()
         player_2.quit()
 
+        exit(-1)
 
 
 
                 
                 
-
 
 
 
