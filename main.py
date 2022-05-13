@@ -3,10 +3,15 @@ import os
 from datetime import datetime
 from time import sleep
 from omxplayer.player import OMXPlayer
-
+import moviepy.editor as mp
+from haishoku.haishoku import Haishoku
+from copy import deepcopy
 
 MINUTE = 60
 first_run = True
+LUMINOCITY_THREASHOLD = 140
+HEIGHT_THREASHOLD = 300
+WIDTH_THREASHOLD = 500
 
 def get_time_slot():
     
@@ -16,14 +21,14 @@ def get_time_slot():
     minute = current_time.minute
 
 
-    if hour >= 8 and hour < 12:
-        slot = "morning"
-    elif hour >= 12 and hour < 16:
-        slot = "afternoon"
-    elif hour >= 16 and hour < 19:
-        slot = "evening"
-    elif hour >= 19 or hour < 8:
-        slot = "night"
+    if hour >= 8 and hour < 16:
+        slot = "daytime"
+    # elif hour >= 12 and hour < 16:
+    #     slot = "afternoon"
+    # elif hour >= 16 and hour < 19:
+    #     slot = "evening"
+    elif hour >= 16 or hour < 8:
+        slot = "nighttime"
 
     return slot
 
@@ -77,9 +82,89 @@ def loop_and_buffer(file_1, file_2, player_1, player_2, first_run, player_1_run,
     #sleep(play_time_2)
     
     
+def process_gif(file_list,source_folder,destination_folder):
+
+    modified_file_list = deepcopy(file_list)
+
+    for file_name in modified_file_list:
+
+        if file_name.endswith('.png'):
+            file_name = file_name.replace('.png','.mp4')
+
+        if os.path.exists(destination_folder + '/' + file_name.replace('.gif', '.mp4')):
+            print(file_name.replace('.gif', '.mp4'), 'already exists')
+            continue
+        
+        print("#####",destination_folder + '/' + file_name.replace('.gif', '.mp4'))
+        
+        # print(file_name)
+        clip = mp.VideoFileClip(f'{source_folder}/{file_name}')
+
+        width, height = clip.size
+
+        if width >= WIDTH_THREASHOLD and height >= HEIGHT_THREASHOLD:
+
+            aspect_ratio = width / height
+
+            if aspect_ratio > 1.3 and aspect_ratio < 2.3:
+                clip = clip.resize((1280,720))
+                clip_length = clip.duration
+
+                clip = clip.loop(n = ceil(10/clip_length))
+
+                clip.write_videofile(destination_folder + '/' + file_name.replace('.gif','.mp4'))
+        
+        
+
 
 
 if __name__ == '__main__':
+
+    gif_folder = './gif_source'
+    unedited_gifs = os.listdir(gif_folder)
+    # print(unedited_gifs)
+    
+    for gif_file in unedited_gifs:
+        
+        if gif_file.endswith('.mp4'):
+            # print(gif_file)
+            # print(f'{gif_folder}/{gif_file}')
+            clip = mp.VideoFileClip(f'{gif_folder}/{gif_file}')
+            modified_file_name = gif_file.replace('.mp4','.png')
+            clip.save_frame(f'{gif_folder}/{modified_file_name}',t = 0)
+            # print(modified_file_name)
+
+    unedited_gifs = os.listdir(gif_folder)
+
+    daytime_gif_list = []
+    nighttime_gif_list = []
+
+    for image_file in unedited_gifs:
+
+        if image_file.endswith('.gif') or image_file.endswith('.png'):
+            
+            dominant = Haishoku.getDominant(f'{gif_folder}/{image_file}')
+            R,G,B = dominant
+            luminocity = (0.2126*R + 0.7152*G + 0.0722*B)
+            # print(luminocity)
+            
+            if luminocity > LUMINOCITY_THREASHOLD:
+                daytime_gif_list.append(image_file)
+
+            else:
+                nighttime_gif_list.append(image_file)
+
+
+    required_directories = ['daytime','nighttime']
+
+    for folder in required_directories:
+        os.makedirs(f'./{folder}',exist_ok = True)
+
+
+    process_gif(daytime_gif_list,gif_folder,f'./daytime')
+    process_gif(nighttime_gif_list, gif_folder, './nighttime')   
+    
+
     
     verbose = 0
 
@@ -91,7 +176,7 @@ if __name__ == '__main__':
     player_1 = OMXPlayer('/home/pi/Desktop/rpi_gif/image1.mp4', args='--start-paused --loop --no-osd ', dbus_name='org.mpris.MediaPlayer2.omxplayer1')
     player_2 = OMXPlayer('/home/pi/Desktop/rpi_gif/image2.mp4',args='--start-paused --loop --no-osd ', dbus_name='org.mpris.MediaPlayer2.omxplayer2')
 
-    required_directories = ['morning','afternoon','evening','night']
+    
 
     available_directories = os.listdir()
 
